@@ -11,15 +11,21 @@ import urllib2
 import urllib
 from   bs4 import BeautifulSoup
 import re
-import os
+import os, sys
+import zipfile
 try:
   from cStringIO import StringIO
 except:
   from StringIO import StringIO
-import zipfile
-import rarfile
+# endtry
+try:
+  import rarfile
+except:
+  print "rarfile should be installed."
+  sys.exit(-1)
+# entry
 
-
+# User-agent
 user_agent = "Mozilla/5.0"
 
 # mkdir -p (after checking if it already exists)
