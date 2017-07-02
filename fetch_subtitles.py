@@ -22,6 +22,14 @@ import rarfile
 
 user_agent = "Mozilla/5.0"
 
+# mkdir -p (after checking if it already exists)
+def make_dirs(dir_path):
+    # Create dir_path if it doesn't exist
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+    # endif
+# enddef
+
 # Main function
 def fetch_subs():
     out_dir   = os.path.expanduser('~') + '/subs/'    # Target directory
@@ -104,9 +112,7 @@ def fetch_subs():
     print "Downloading all {} subtitles.".format(main_lang)
 
     # Create out_dir if it doesn't exist
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-    # endif
+    make_dirs(out_dir)
 
     for item in title_list:
         url_this    = url_home + item['href']['href']
@@ -125,16 +131,20 @@ def fetch_subs():
         req_this    = urllib2.Request(url_next, headers={'User-Agent' : user_agent})
         data_this   = urllib2.urlopen(req_this)
         file_fp     = StringIO(data_this.read())
+        m_title     = item['title'].encode('utf-8')
+        tgt_dir     = '{}/{}'.format(out_dir, m_title)
         try:
             try:
                 with zipfile.ZipFile(file_fp, "r") as zfp:
-                    print "Extracting {} in {}".format(item['title'].encode('utf-8'), out_dir)
-                    zfp.extractall(out_dir)
+                    print "Extracting {} in {}".format(m_title, tgt_dir)
+                    make_dirs(tgt_dir)
+                    zfp.extractall(tgt_dir)
                 # endwith
             except zipfile.BadZipfile:
                 with rarfile.RarFile(file_fp, "r") as rfp:
-                    print "Extracting {} in {}".format(item['title'].encode('utf-8'), out_dir)
-                    rfp.extractall(out_dir)
+                    print "Extracting {} in {}".format(m_title, tgt_dir)
+                    make_dirs(tgt_dir)
+                    rfp.extractall(tgt_dir)
                 # endwith
             # endtry
         except rarfile.RarUnknownError:
