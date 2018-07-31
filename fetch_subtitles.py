@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Python script for downloading subtitles from https://subscene.com
 # Copyright : Vikas Chouhan (presentisgood@gmail.com)
@@ -7,21 +7,16 @@
 # Dependencies : unrar should be installed
 #                rarfile (python module) is required
 
-import urllib2
 import urllib
 from   bs4 import BeautifulSoup
 import re
 import os, sys
 import zipfile
-try:
-  from cStringIO import StringIO
-except:
-  from StringIO import StringIO
-# endtry
+import io
 try:
   import rarfile
 except:
-  print "rarfile should be installed."
+  print("rarfile should be installed.")
   sys.exit(-1)
 # entry
 
@@ -42,16 +37,16 @@ def fetch_subs():
     url_home  = 'https://subscene.com'
     cntr      = 0;
 
-    s_str     = str(raw_input('Enter movie name : '))
+    s_str     = str(input('Enter movie name : '))
     # For url encoding
     url_enc_d = {
                     'q' : s_str,
                     'l' : '',
                 }
-    url_this  = url_home + '/subtitles/title?{}'.format(urllib.urlencode(url_enc_d))
-    print "Querying {}".format(url_this)
-    req_this  = urllib2.Request(url_this, headers={'User-Agent' : user_agent})
-    data_this = urllib2.urlopen(req_this)
+    url_this  = url_home + '/subtitles/title?{}'.format(urllib.parse.urlencode(url_enc_d))
+    print("Querying {}".format(url_this))
+    req_this  = urllib.request.Request(url_this, headers={'User-Agent' : user_agent})
+    data_this = urllib.request.urlopen(req_this)
     page_root = data_this.read()
     soup_root = BeautifulSoup(page_root, 'lxml')
     
@@ -61,7 +56,7 @@ def fetch_subs():
     hrefs_list = list(set(hrefs_list))  # Remove duplicates
     
     if len(hrefs_list) == 0:
-        print 'Nothing found !!'
+        print('Nothing found !!')
         return
     # endif
 
@@ -71,27 +66,27 @@ def fetch_subs():
         p_str = p_str + '{} : {}\n'.format(indx, hrefs_list[indx].text.encode('utf-8'))
     # endfor
     p_str = p_str + 'Enter choice : '
-    choice = int(raw_input(p_str))
+    choice = int(input(p_str))
 
     if choice > len(hrefs_list):
-        print "Entered wrong choice {}".format(choice)
+        print("Entered wrong choice {}".format(choice))
         return
     # endif
 
-    print "Choice Entered is {}".format(choice)
+    print("Choice Entered is {}".format(choice))
 
     href_this   = hrefs_list[choice]
     link_title  = href_this['href'].split('/')[2]
     url_this    = url_home + href_this['href']
-    print "Going to page {}".format(url_this)
+    print("Going to page {}".format(url_this))
 
-    req_this    = urllib2.Request(url_this, headers={'User-Agent' : user_agent})
-    data_this   = urllib2.urlopen(req_this)
+    req_this    = urllib.request.Request(url_this, headers={'User-Agent' : user_agent})
+    data_this   = urllib.request.urlopen(req_this)
     page_this   = data_this.read()
 
     soup_this   = BeautifulSoup(page_this, 'lxml')
     hrefs2_list = soup_this.find_all('a', href=re.compile(r'\/subtitles\/{}\/'.format(link_title)))
-    print "Found {} subtitles in all languages.".format(len(hrefs2_list))
+    print("Found {} subtitles in all languages.".format(len(hrefs2_list)))
 
     main_lang   = u'English'
     title_list  = []
@@ -110,20 +105,20 @@ def fetch_subs():
         # endif
     # endfor
 
-    print "Found {} {} subtitles.".format(len(title_list), main_lang)
+    print("Found {} {} subtitles.".format(len(title_list), main_lang))
     if len(title_list) == 0:               # if no list was returned, just return
         return
     # endif
 
-    print "Downloading all {} subtitles.".format(main_lang)
+    print("Downloading all {} subtitles.".format(main_lang))
 
     # Create out_dir if it doesn't exist
     make_dirs(out_dir)
 
     for item in title_list:
         url_this    = url_home + item['href']['href']
-        req_this    = urllib2.Request(url_this, headers={'User-Agent' : user_agent})
-        data_this   = urllib2.urlopen(req_this)
+        req_this    = urllib.request.Request(url_this, headers={'User-Agent' : user_agent})
+        data_this   = urllib.request.urlopen(req_this)
         page_this   = data_this.read()
 
         soup_this   = BeautifulSoup(page_this, 'lxml')
@@ -134,27 +129,27 @@ def fetch_subs():
         btn_href    = down_btn.find('a')['href']
         url_next    = url_home + btn_href
 
-        req_this    = urllib2.Request(url_next, headers={'User-Agent' : user_agent})
-        data_this   = urllib2.urlopen(req_this)
-        file_fp     = StringIO(data_this.read())
+        req_this    = urllib.request.Request(url_next, headers={'User-Agent' : user_agent})
+        data_this   = urllib.request.urlopen(req_this)
+        file_fp     = io.BytesIO(data_this.read())
         m_title     = item['title'].encode('utf-8')
         tgt_dir     = '{}/{}'.format(out_dir, m_title)
         try:
             try:
                 with zipfile.ZipFile(file_fp, "r") as zfp:
-                    print "Extracting {} in {}".format(m_title, tgt_dir)
+                    print("Extracting {} in {}".format(m_title, tgt_dir))
                     make_dirs(tgt_dir)
                     zfp.extractall(tgt_dir)
                 # endwith
             except zipfile.BadZipfile:
                 with rarfile.RarFile(file_fp, "r") as rfp:
-                    print "Extracting {} in {}".format(m_title, tgt_dir)
+                    print("Extracting {} in {}".format(m_title, tgt_dir))
                     make_dirs(tgt_dir)
                     rfp.extractall(tgt_dir)
                 # endwith
             # endtry
         except rarfile.RarUnknownError:
-            print "Warning: Not a valid zip or rar file. Writing as it is.".format(url_next)
+            print("Warning: Not a valid zip or rar file. Writing as it is.".format(url_next))
             with open('{}/{}.{}'.format(out_dir, cntr, 'unknown'), 'w') as fp:
                 fp.write(file_fp.getvalue())
             # endwith
