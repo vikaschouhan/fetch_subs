@@ -38,6 +38,8 @@ def fetch_subs():
     cntr      = 0;
 
     s_str     = str(input('Enter movie name : '))
+    s_filter  = str(input('Enter a pattern to filter (Just hit Enter to ignore) : '))
+
     # For url encoding
     url_enc_d = {
                     'q' : s_str,
@@ -95,6 +97,13 @@ def fetch_subs():
         span_list = hrefs2_list[indx].find_all('span')
         lang_this = span_list[0].text.replace('\t', '').replace('\n', '').replace('\r', '')
         mov_name  = span_list[1].text.replace('\t', '').replace('\n', '').replace('\r', '')
+
+        # Filter links
+        if s_filter != None and s_filter != '':
+            if bool(re.search(s_filter, mov_name)) == False:
+                continue
+            # endif
+        # endif
 
         if lang_this == main_lang:
             title_list.append({
