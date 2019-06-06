@@ -8,6 +8,8 @@
 #                rarfile (python module) is required
 
 import urllib
+import urllib.parse
+import urllib.request
 from   bs4 import BeautifulSoup
 import re
 import os, sys
@@ -37,54 +39,32 @@ def fetch_subs():
     url_home  = 'https://subscene.com'
     cntr      = 0;
 
-    s_str     = str(input('Enter movie name : '))
+    s_str     = str(input('Enter movie name (if your term yields no results, append year also with a space): '))
     s_filter  = str(input('Enter a pattern to filter (Just hit Enter to ignore) : '))
+    org_title = s_str
 
-    # For url encoding
-    url_enc_d = {
-                    'q' : s_str,
-                    'l' : '',
-                }
-    url_this  = url_home + '/subtitles/title?{}'.format(urllib.parse.urlencode(url_enc_d))
-    print("Querying {}".format(url_this))
-    req_this  = urllib.request.Request(url_this, headers={'User-Agent' : user_agent})
-    data_this = urllib.request.urlopen(req_this)
-    page_root = data_this.read()
-    soup_root = BeautifulSoup(page_root, 'lxml')
-    
-    # Find all hrefs
-    hrefs_list = soup_root.find_all('a', href=re.compile(r'/subtitles/'))
-    hrefs_list.pop()   # Remove last elements as it's irrelevant
-    hrefs_list = list(set(hrefs_list))  # Remove duplicates
-    
-    if len(hrefs_list) == 0:
-        print('Nothing found !!')
-        return
-    # endif
+    # NOTE:
+    # As of 6th June 2019, from what I tested subscene.com has removed their API
+    # based search page. It's now javascript driven. I don't have time or energy
+    # to implement it. Thus the use directly has to provide title name not a search term,
 
-    # Ask user to press a button
-    p_str = 'Found following list.\n'
-    for indx in range(0, len(hrefs_list)):
-        p_str = p_str + '{} : {}\n'.format(indx, hrefs_list[indx].text.encode('utf-8'))
-    # endfor
-    p_str = p_str + 'Enter choice : '
-    choice = int(input(p_str))
+    # Modify movie title
+    s_str     = re.sub(' +', '-', s_str) # Replace multiple spaces with single hyphen
+    s_str     = s_str.lower() # Conver the full title to lowercase
 
-    if choice > len(hrefs_list):
-        print("Entered wrong choice {}".format(choice))
-        return
-    # endif
-
-    print("Choice Entered is {}".format(choice))
-
-    href_this   = hrefs_list[choice]
-    link_title  = href_this['href'].split('/')[2]
-    url_this    = url_home + href_this['href']
+    # Get title and url
+    link_title  = s_str
+    url_this    = url_home + '/subtitles/{}'.format(link_title)
     print("Going to page {}".format(url_this))
 
-    req_this    = urllib.request.Request(url_this, headers={'User-Agent' : user_agent})
-    data_this   = urllib.request.urlopen(req_this)
-    page_this   = data_this.read()
+    try:
+        req_this    = urllib.request.Request(url_this, headers={'User-Agent' : user_agent})
+        data_this   = urllib.request.urlopen(req_this)
+        page_this   = data_this.read()
+    except urllib.error.HTTPError:
+        print('Title "{}" not found. Did you spell it correctly ? Please spell it exact. This is no search engine !!'.format(org_title))
+        sys.exit(-1)
+    # endtry
 
     soup_this   = BeautifulSoup(page_this, 'lxml')
     hrefs2_list = soup_this.find_all('a', href=re.compile(r'\/subtitles\/{}\/'.format(link_title)))
