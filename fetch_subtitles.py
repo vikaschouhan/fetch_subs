@@ -11,6 +11,7 @@ import urllib
 import urllib.parse
 import urllib.request
 from   bs4 import BeautifulSoup
+import itertools
 import re
 import os, sys
 import zipfile
@@ -49,22 +50,43 @@ def fetch_subs():
     # to implement it. Thus the use directly has to provide title name not a search term,
 
     # Modify movie title
-    s_str     = re.sub(' +', '-', s_str) # Replace multiple spaces with single hyphen
-    s_str     = s_str.lower() # Conver the full title to lowercase
+    s_tokens  = s_str.lower().split()
 
     # Get title and url
     link_title  = s_str
-    url_this    = url_home + '/subtitles/{}'.format(link_title)
-    print("Going to page {}".format(url_this))
+    all_cat_l   = list(itertools.combinations_with_replacement(['-', ''], len(s_tokens)-1))
+    all_cat_l   = list(set(all_cat_l).union(set([x[::-1] for x in all_cat_l])))
 
-    try:
-        req_this    = urllib.request.Request(url_this, headers={'User-Agent' : user_agent})
-        data_this   = urllib.request.urlopen(req_this)
-        page_this   = data_this.read()
-    except urllib.error.HTTPError:
+    assert len(all_cat_l[0]) == len(s_tokens) - 1, 'This should never happen !!'
+    match_found = False
+
+    for cat_l_t in all_cat_l:
+        link_title = ''
+        item_ctr   = 0
+        for delim_t in cat_l_t:
+            link_title += s_tokens[item_ctr] + delim_t
+            item_ctr += 1
+        # endfor
+        link_title += s_tokens[item_ctr]
+        url_this    = url_home + '/subtitles/{}'.format(link_title)
+        print("Trying {}".format(url_this))
+
+        try:
+            req_this    = urllib.request.Request(url_this, headers={'User-Agent' : user_agent})
+            data_this   = urllib.request.urlopen(req_this)
+            page_this   = data_this.read()
+            match_found = True
+            break
+        except urllib.error.HTTPError:
+            print('{} not found !!'.format(url_this))
+            continue
+        # endtry
+    # endfor
+
+    if match_found == False:
         print('Title "{}" not found. Did you spell it correctly ? Please spell it exact. This is no search engine !!'.format(org_title))
         sys.exit(-1)
-    # endtry
+    # endif
 
     soup_this   = BeautifulSoup(page_this, 'lxml')
     hrefs2_list = soup_this.find_all('a', href=re.compile(r'\/subtitles\/{}\/'.format(link_title)))
