@@ -75,6 +75,11 @@ def fetch_subs(proxy):
         url_this    = url_home + '/subtitles/{}'.format(link_title)
         print("Trying {}".format(url_this))
 
+        # Refresh new cookies for each url search cookies
+        sess      = requests.Session()
+        res       = sess.get(url_this, headers=headers, proxies=proxy)
+        cookies   = dict(res.cookies)
+
         req_this   = sess.get(url_this, cookies=cookies)
         if req_this.status_code == 200:
             page_this   = req_this.text
