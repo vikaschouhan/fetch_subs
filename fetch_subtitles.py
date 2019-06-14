@@ -7,15 +7,14 @@
 # Dependencies : unrar should be installed
 #                rarfile (python module) is required
 
-import urllib
-import urllib.parse
-import urllib.request
 from   bs4 import BeautifulSoup
+import requests
 import itertools
 import re
 import os, sys
 import zipfile
 import io
+import argparse
 try:
   import rarfile
 except:
@@ -24,7 +23,7 @@ except:
 # entry
 
 # User-agent
-user_agent = "Mozilla/5.0"
+headers = {'User-Agent' : "Mozilla/5.0"}
 
 # mkdir -p (after checking if it already exists)
 def make_dirs(dir_path):
@@ -35,10 +34,15 @@ def make_dirs(dir_path):
 # enddef
 
 # Main function
-def fetch_subs():
+def fetch_subs(proxy):
     out_dir   = os.path.expanduser('~') + '/subs/'    # Target directory
     url_home  = 'https://subscene.com'
     cntr      = 0;
+
+    # Get cookies
+    sess      = requests.Session()
+    res       = sess.get(url_home, headers=headers, proxies=proxy)
+    cookies   = dict(res.cookies)
 
     s_str     = str(input('Enter movie name (if your term yields no results, append year also with a space): '))
     s_filter  = str(input('Enter a pattern to filter (Just hit Enter to ignore) : '))
@@ -71,20 +75,18 @@ def fetch_subs():
         url_this    = url_home + '/subtitles/{}'.format(link_title)
         print("Trying {}".format(url_this))
 
-        try:
-            req_this    = urllib.request.Request(url_this, headers={'User-Agent' : user_agent})
-            data_this   = urllib.request.urlopen(req_this)
-            page_this   = data_this.read()
+        req_this   = sess.get(url_this, cookies=cookies)
+        if req_this.status_code == 200:
+            page_this   = req_this.text
             match_found = True
             break
-        except urllib.error.HTTPError:
-            print('{} not found !!'.format(url_this))
-            continue
-        # endtry
+        else:
+            print('Fetching {} returned status code {}'.format(url_this, req_this.status_code))
+        # endif
     # endfor
 
     if match_found == False:
-        print('Title "{}" not found. Did you spell it correctly ? Please spell it exact. This is no search engine !!'.format(org_title))
+        print('Title "{}" not found. This is no search engine !! Please spell correctly or try after some time if encountered 409 errors.'.format(org_title))
         sys.exit(-1)
     # endif
 
@@ -128,11 +130,13 @@ def fetch_subs():
 
     for item in title_list:
         url_this    = url_home + item['href']['href']
-        req_this    = urllib.request.Request(url_this, headers={'User-Agent' : user_agent})
-        data_this   = urllib.request.urlopen(req_this)
-        page_this   = data_this.read()
+        req_this    = sess.get(url_this, cookies=cookies)
+        if req_this.status_code != 200:
+            print('Fetching {} returned status code {}'.format(url_this, req_this.status_code))
+            continue
+        # endif
 
-        soup_this   = BeautifulSoup(page_this, 'lxml')
+        soup_this   = BeautifulSoup(req_this.text, 'lxml')
         down_btn    = soup_this.find('div', { 'class' : 'download'})   # Get download button
         if down_btn == None:
             continue
@@ -140,9 +144,12 @@ def fetch_subs():
         btn_href    = down_btn.find('a')['href']
         url_next    = url_home + btn_href
 
-        req_this    = urllib.request.Request(url_next, headers={'User-Agent' : user_agent})
-        data_this   = urllib.request.urlopen(req_this)
-        file_fp     = io.BytesIO(data_this.read())
+        req_this    = sess.get(url_next, cookies=cookies)
+        if req_this.status_code != 200:
+            print('Fetching {} returned status code {}'.format(url_next, req_this.status_code))
+            continue
+        # endif
+        file_fp     = io.BytesIO(req_this.content)
         m_title     = item['title'].encode('utf-8')
         tgt_dir     = '{}/{}'.format(out_dir, m_title)
         try:
@@ -159,7 +166,7 @@ def fetch_subs():
                     rfp.extractall(tgt_dir)
                 # endwith
             # endtry
-        except rarfile.RarUnknownError:
+        except rarfile.RarUnknownError or rarfile.BadRarFile:
             print("Warning: Not a valid zip or rar file. Writing as it is.".format(url_next))
             with open('{}/{}.{}'.format(out_dir, cntr, 'unknown'), 'w') as fp:
                 fp.write(file_fp.getvalue())
@@ -169,5 +176,15 @@ def fetch_subs():
 # enddef
 
 if __name__ == '__main__':
-    fetch_subs()
+    parser     = argparse.ArgumentParser()
+    parser.add_argument('--use_onion', help='Use onion website.', action='store_true')
+    args       = parser.parse_args()
+    use_onion  = args.__dict__['use_onion']
+    proxy      = {}
+
+    if use_onion:
+       proxy   = {'http': 'socks5h://127.0.0.1:9050', 'https': 'socks5h://127.0.0.1:9050'}
+    # endif
+
+    fetch_subs(proxy)
 # endif
